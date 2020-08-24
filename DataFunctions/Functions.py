@@ -13,32 +13,61 @@ from elasticsearch import Elasticsearch, helpers
 from sentence_transformers import SentenceTransformer
 
 
+def connectES(credentials):
+    es = Elasticsearch(['http://' + credentials["username"] + ':' + credentials["password"] + '@' + credentials["ip_and_port"]], timeout=600)
+    return es
+
+
 def downloadModel():
     model = SentenceTransformer('bert-base-nli-mean-tokens')
     return {}
 
-'''
 
-'''
+def createTextVectorsIndex(indexName):
+    doc = {
+        "mappings": {
+            "properties": {
+                "vector": {
+                    "type": "dense_vector",
+                    "dims": 768
+                },
+                "text" : {
+                    "type" : "keyword"
+                }
+            }
+        }
+    }
+    es = connectES(defaults.credentials)
+    es.indices.create(indexName, body=doc)
+    return True
+
+
 def getTextVector(data):
+    """
+    Get vector of a text data using the trained model encoder
+    :return: the vector by trained model encoder of the text data
+    """
     model = SentenceTransformer('bert-base-nli-mean-tokens')
     text = data["inputParagraph"]
     textVector = model.encode(text).tolist() 
     results = {
-        "sentence": text, 
-        "sentenceVectors": textVector
+        "text": text, 
+        "textVectors": textVector
     }
     return results
 
+
 def getIndex(indexName):
-    es = Elasticsearch(['http://' + defaults.credentials["username"] + ':' + defaults.credentials["password"] + '@' + defaults.credentials["ip_and_port"]], timeout=600)
+    es = connectES(defaults.credentials)
     doc = {
+        'size' : 10000,
         "query": {
             "match_all": {}
         }
     }
     result = es.search(index=indexName, body=doc)
     return result
+
 
 def addTextVectors():
     model = SentenceTransformer('bert-base-nli-mean-tokens')
@@ -47,7 +76,6 @@ def addTextVectors():
     actions = [
         {
             "_index": "text-vectors",
-            # "_id": d["_source"]["originalParagraph"],
             "_source": {
                 "text": d["_source"]["originalParagraph"],
                 "vector": model.encode(d["_source"]["originalParagraph"]).tolist() ,
@@ -55,19 +83,23 @@ def addTextVectors():
         }
         for d in data
     ]
-    print(actions)
-    es = Elasticsearch(['http://' + defaults.credentials["username"] + ':' + defaults.credentials["password"] + '@' + defaults.credentials["ip_and_port"]], timeout=600)
+    es = connectES(defaults.credentials)
     helpers.bulk(es, actions)
     return
 
 
 def searchText(data):
+    """
+    Search for similar vectors using the vector of a text data
+    :return: the list of data corresponding to the similar vectors found
+    """
     model = SentenceTransformer('bert-base-nli-mean-tokens')
     text = data["inputParagraph"]
+    limit = data["limit"]
     textVector = model.encode(text).tolist() 
-    es = Elasticsearch(['http://' + defaults.credentials["username"] + ':' + defaults.credentials["password"] + '@' + defaults.credentials["ip_and_port"]], timeout=600)
+    es = connectES(defaults.credentials)
     doc = {
-        "size": 10000,
+        "size": limit,
         "query": {
             "script_score": {
                 "query": {

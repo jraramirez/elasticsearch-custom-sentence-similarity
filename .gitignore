@@ -1,0 +1,8 @@
+*.db
+.idea
+*.py[co]
+*.pyc
+.vscode
+__pycache__/
+venv/
+d.DS_Store

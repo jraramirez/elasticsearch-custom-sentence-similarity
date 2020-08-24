@@ -6,8 +6,9 @@ import DataFunctions.Functions as df
 app = Flask(__name__)
 
 @app.route('/init-vectors', methods=['GET', 'POST']) 
-def sentenceMatch():
-    df.addTextVectors()
+def initVectors():
+    if df.createTextVectorsIndex("text-vectors"):
+        df.addTextVectors()
     return {}
 
 @app.route('/text-vector', methods=['POST']) 
